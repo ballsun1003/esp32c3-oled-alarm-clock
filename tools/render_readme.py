@@ -1,4 +1,4 @@
-"""After test_display.cmd with CO2_CAPTURE_DEMO=1, render the README GIFs (Pillow)."""
+"""After test_display.cmd with CO2_CAPTURE_DEMO=1, render the README media (Pillow)."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
@@ -13,6 +13,19 @@ def oled(name):
     assert (magic, width, height, len(pixels)) == ("P1", "128", "64", 8192)
     frame = Image.frombytes("L", (128, 64), bytes(255 if p == "0" else 0 for p in pixels))
     return frame.resize((384, 192), Image.Resampling.NEAREST)
+
+
+def menu_layout():
+    panels = [("main-top", "Main menu / top"), ("main-bottom", "Main menu / bottom"),
+              ("motion", "Motion Setup / bottom"), ("input", "Input Setup / bottom")]
+    sheet = Image.new("RGB", (804, 468), (25, 29, 31))
+    draw = ImageDraw.Draw(sheet)
+    font = ImageFont.load_default(size=17)
+    for i, (name, label) in enumerate(panels):
+        x, y = 12 + (i % 2) * 396, 10 + (i // 2) * 230
+        draw.text((x, y), label, font=font, fill=(215, 221, 222))
+        sheet.paste(oled(name), (x, y + 24))
+    sheet.save(OUT / "menu-layout.png")
 
 
 def interaction(name):
@@ -52,6 +65,7 @@ def interaction(name):
 
 frames = [oled(f"demo-{n:03}") for n in range(120)]
 frames[0].save(OUT / "clock.gif", save_all=True, append_images=frames[1:], duration=100, loop=0)
+menu_layout()
 for clip in ("alarm-shortcut", "focus-and-days", "sensor-setup", "inline-setting",
              "alarm-more", "hold-to-reset", "menu-warning", "city-keyboard"):
     interaction(clip)
