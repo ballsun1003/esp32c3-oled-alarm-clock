@@ -1,0 +1,77 @@
+static void wakeCheckUiChecks() {
+  auto savedState = state;
+  bool savedSettle = settleFocus;
+  settleFocus = true;
+  state.uiState = ALARM_OPTIONS;
+  state.optionIdx = 3;
+  state.optionOffset = 0;
+  state.isEditing = false;
+  state.tempAlarmOptions = AlarmOptions{};
+  assert(state.tempAlarmOptions.checkTimeoutSec == 60);
+  state.tempAlarmOptions.checkMinutes = 5;
+  state.tempAlarmOptions.mission = 2;
+  setupInput(false, false, true, true, 100);
+  assert(state.isEditing);
+  for (int n = 0; n < 20; n++) setupInput(true, false, false, false, 200 + n);
+  assert(state.tempAlarmOptions.checkTimeoutSec == 10);
+  for (int seconds = 10; seconds <= 180; seconds += 10) {
+    assert(state.tempAlarmOptions.checkTimeoutSec == seconds);
+    displayTime += 100;
+    display.rolling.reset();
+    cleanCanvas();
+    display.drawAlarmOptions();
+    display.verify("check limit field");
+    uint8_t actual[1024];
+    memcpy(actual, u8g2.bytes, 1024);
+    cleanCanvas();
+    u8g2.setFont(u8g2_font_6x10_tr);
+    char label[32];
+    snprintf(label, sizeof(label), "Check Limit [%3ds]", seconds);
+    u8g2.drawStr(4, 48, label);
+    sameRegion(actual, {2, 41, 124, 9}, "check limit raw value and brackets");
+    memcpy(u8g2.bytes, actual, 1024);
+    display.finish();
+    if (seconds == 10) save("wake-limit-min");
+    if (seconds == 60) save("wake-limit-default");
+    if (seconds == 180) save("wake-limit-max");
+    setupInput(false, true, false, false, 400 + seconds);
+  }
+  assert(state.tempAlarmOptions.checkTimeoutSec == 180);
+  assert(state.tempAlarmOptions.checkMinutes == 5 && state.tempAlarmOptions.mission == 2);
+  setupInput(false, false, true, true, 1000);
+  assert(!state.isEditing);
+  setupInput(false, true, false, false, 1100);
+  assert(state.optionIdx == 4);
+  setupInput(false, false, true, true, 1200);
+  setupInput(false, true, false, false, 1300);
+  assert(state.tempAlarmOptions.mission == 3 && state.tempAlarmOptions.checkTimeoutSec == 180);
+  setupInput(false, false, true, true, 1400);
+  setupInput(false, true, false, false, 1500);
+  assert(state.optionIdx == 5 && state.optionOffset == 1);
+  cleanCanvas();
+  display.drawAlarmOptions();
+  display.verify("scrolled alarm options");
+  display.finish();
+  save("wake-options-bottom");
+  setupInput(false, false, true, true, 1600);
+  assert(state.uiState == ALARM_LIGHT);
+  setupInput(false, false, true, true, 1700);
+  assert(state.uiState == ALARM_OPTIONS && state.optionIdx == 5 && state.optionOffset == 1);
+  for (int n = 0; n < 12; n++) setupInput(true, false, false, false, 1800 + n);
+  assert(state.optionIdx == 0 && state.optionOffset == 0);
+  setupInput(false, true, false, false, 1900);
+  setupInput(false, false, true, true, 2000);
+  assert(state.uiState == ALARM_SNOOZE);
+  setupInput(false, false, true, true, 2100);
+  assert(state.uiState == ALARM_OPTIONS && state.optionIdx == 1 && state.optionOffset == 0);
+  setupInput(true, false, false, false, 2200);
+  setupInput(false, false, true, true, 2300);
+  assert(state.uiState == ALARM_EDIT && state.editRow == 4);
+  state = savedState;
+  settleFocus = savedSettle;
+  display.scrollView = -1;
+  display.rolling.reset();
+  puts(
+      "Wake-check UI: 18 limits, edit isolation, five-row scrolling and snooze/light/back "
+      "navigation passed.");
+}

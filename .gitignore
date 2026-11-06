@@ -1,0 +1,9 @@
+/_backup/
+/build/
+*.obj
+*.exe
+*.elf
+*.bin
+*.map
+.DS_Store
+Thumbs.db

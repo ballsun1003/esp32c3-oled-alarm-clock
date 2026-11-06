@@ -1,0 +1,34 @@
+const fs=require('node:fs'),path=require('node:path');
+const root=path.join(__dirname,'..'),source=fs.readFileSync(path.join(root,'co2.ino'),'utf8');
+const lib=process.env.U8G2_SOURCE || path.join(process.env.USERPROFILE,'Documents/Arduino/libraries/U8g2/src/clib');
+fs.writeFileSync(path.join(root,'_backup/ui-enums.h'),source.match(/enum UIState \{[\s\S]*?\};/)[0]);
+fs.writeFileSync(path.join(root,'_backup/display-alarm-options-test.h'),source.match(/struct AlarmOptions \{[\s\S]*?\n\};/)[0]);
+function extract(name){const match=source.match(new RegExp('(?:void|bool|int|float|uint16_t) '+name+'\\('));if(!match)throw Error(name);let start=match.index,end=source.indexOf('{',start)+1,depth=1;for(;depth;end++){if(source[end]==='{')depth++;if(source[end]==='}')depth--;}return source.slice(start,end);}
+const methods=['drawPanelHeader','drawFocus','finishFocus','drawAlarmEdit','drawDaySelect','drawCo2Setting','drawCo2Label','drawSettingRow','drawOptionRow','drawAlarmOptions','drawSnooze','drawLightLearning','drawMotionSettings','drawInputSettings','drawMainMenu','drawConfirmButtons','drawAbcConfirm','drawSpinner','drawLoading','getWeatherIcon','getArrowIcon','drawWeatherInfoRow','getTempDisplayText','getRainDisplayText','getWindDisplayText','getPmDisplayText','drawCO2'];
+methods.push('drawAlarmList','drawWiFiList','drawLocationResultList','drawScrollableText','getFocusedMarqueeOffset','ellipsizeTextInto','buildLocationResultLabel','rasterClock');
+methods.push('drawLocation','listOffset','drawWiFiScanning','drawResetConfirm');
+const extracted=methods.map(extract).join('\n');
+fs.writeFileSync(path.join(root,'_backup/display-methods.h'),extracted);
+const input=source.slice(source.indexOf('class TextInputManager {'),source.indexOf('} textInputMgr;')+15);
+fs.writeFileSync(path.join(root,'_backup/text-input.h'),input);
+fs.writeFileSync(path.join(root,'_backup/display-helpers.h'),['splitTextOnNewline','loadingTextRequestsSpinner','clampListState','uiPage','beginMenuHold','cancelMenuHold'].map(extract).join('\n'));
+fs.writeFileSync(path.join(root,'_backup/reset-constant.h'),source.match(/^#define FULL_RESET_HOLD_MS \d+/m)[0]+'\n');
+const resetBegin=source.indexOf('    case RESET_CONFIRM:',source.indexOf('void processInput(unsigned long now)'));
+const resetEnd=source.indexOf('    case LOCATION_SETUP:',resetBegin);
+fs.writeFileSync(path.join(root,'_backup/reset-input.h'),source.slice(resetBegin,resetEnd));
+const wifiBegin=source.indexOf('    case WIFI_LIST:',source.indexOf('void processInput(unsigned long now)'));
+const wifiEnd=source.indexOf('    case WIFI_PASS_INPUT:',wifiBegin);
+fs.writeFileSync(path.join(root,'_backup/wifi-input.h'),source.slice(wifiBegin,wifiEnd));
+const begin=source.indexOf('    case MOTION_SETTING:',source.indexOf('void processInput(unsigned long now)'));
+const end=source.indexOf('    case LOCATION_SEARCH_INPUT:',begin);
+fs.writeFileSync(path.join(root,'_backup/setup-input.h'),source.slice(begin,end));
+const fontNames=[...new Set((extracted+input).match(/u8g2_font_\w+/g))];
+const fonts=fs.readFileSync(path.join(lib,'u8g2_fonts.c'),'utf8');
+let text='#include "u8g2.h"\n';
+for(const name of fontNames){const begin=fonts.indexOf('const uint8_t '+name+'[');if(begin<0)throw Error(name);let end=begin,quoted=false;for(;end<fonts.length;end++){const c=fonts[end];if(quoted&&c==='\\'){end++;continue;}if(c==='"')quoted=!quoted;if(c===';'&&!quoted)break;}text+=fonts.slice(begin,end+1)+'\n';}
+fs.writeFileSync(path.join(root,'_backup/display-fonts.c'),text);
+const files=['u8g2_font','u8g2_box','u8g2_hvline','u8g2_ll_hvline','u8g2_line','u8g2_setup','u8g2_intersection','u8g2_buffer','u8x8_8x8','u8g2_kerning','u8g2_circle','u8x8_setup','u8x8_cad','u8x8_display','u8x8_capture','u8x8_byte','u8x8_gpio'];
+files.push('u8x8_u16toa');
+const rsp='/nologo /c /O2 /Gy /Gw /D_CRT_SECURE_NO_WARNINGS /I"'+lib+'" /Fo"_backup/display-objects/"\n'+files.map(n=>'"'+path.join(lib,n+'.c')+'"').join('\n')+'\n_backup/display-fonts.c\n';
+fs.mkdirSync(path.join(root,'_backup/display-objects'),{recursive:true});fs.writeFileSync(path.join(root,'_backup/display.rsp'),rsp);
+fs.writeFileSync(path.join(root,'_backup/display-link.rsp'),'/nologo /std:c++17 /EHsc /O2 /D_CRT_SECURE_NO_WARNINGS /I"'+lib+'" /Fe:_backup/display-test.exe /Fo:_backup/display-test.obj tests/native_display.cpp '+files.map(n=>'_backup/display-objects/'+n+'.obj').join(' ')+' _backup/display-objects/display-fonts.obj /link /OPT:REF');
