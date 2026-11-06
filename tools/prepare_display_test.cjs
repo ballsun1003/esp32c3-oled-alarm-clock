@@ -7,12 +7,18 @@ function extract(name){const match=source.match(new RegExp('(?:void|bool|int|flo
 const methods=['drawPanelHeader','drawFocus','finishFocus','drawAlarmEdit','drawDaySelect','drawCo2Setting','drawCo2Label','drawSettingRow','drawOptionRow','drawAlarmOptions','drawSnooze','drawLightLearning','drawMotionSettings','drawInputSettings','drawMainMenu','drawConfirmButtons','drawAbcConfirm','drawSpinner','drawLoading','getWeatherIcon','getArrowIcon','drawWeatherInfoRow','getTempDisplayText','getRainDisplayText','getWindDisplayText','getPmDisplayText','drawCO2'];
 methods.push('drawAlarmList','drawWiFiList','drawLocationResultList','drawScrollableText','getFocusedMarqueeOffset','ellipsizeTextInto','buildLocationResultLabel','rasterClock');
 methods.push('drawLocation','listOffset','drawWiFiScanning','drawResetConfirm');
+methods.push('uiDepth','drawMenuCloseWarning');
 const extracted=methods.map(extract).join('\n');
 fs.writeFileSync(path.join(root,'_backup/display-methods.h'),extracted);
 const input=source.slice(source.indexOf('class TextInputManager {'),source.indexOf('} textInputMgr;')+15);
 fs.writeFileSync(path.join(root,'_backup/text-input.h'),input);
 fs.writeFileSync(path.join(root,'_backup/display-helpers.h'),['splitTextOnNewline','loadingTextRequestsSpinner','clampListState','uiPage','beginMenuHold','cancelMenuHold'].map(extract).join('\n'));
 fs.writeFileSync(path.join(root,'_backup/reset-constant.h'),source.match(/^#define FULL_RESET_HOLD_MS \d+/m)[0]+'\n');
+const demoConstants = ['SCREEN_W', 'SCREEN_H', 'MENU_INACTIVITY_TIMEOUT_MS', 'MENU_INACTIVITY_WARNING_MS'];
+fs.writeFileSync(path.join(root, '_backup/demo-constants.h'),
+  demoConstants.map(name => source.match(new RegExp('^#define ' + name + ' .+', 'm'))[0]).join('\n') + '\n');
+const menuCases = source.match(/void processInput\(unsigned long now\) \{[\s\S]*?\n(    case MAIN_MENU:[\s\S]*?)    case CALIBRATION_CONFIRM:/)[1];
+fs.writeFileSync(path.join(root, '_backup/demo-menu-input.h'), menuCases);
 const resetBegin=source.indexOf('    case RESET_CONFIRM:',source.indexOf('void processInput(unsigned long now)'));
 const resetEnd=source.indexOf('    case LOCATION_SETUP:',resetBegin);
 fs.writeFileSync(path.join(root,'_backup/reset-input.h'),source.slice(resetBegin,resetEnd));

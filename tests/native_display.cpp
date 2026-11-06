@@ -16,6 +16,7 @@
 #include "../oled_input.h"
 #include "../_backup/ui-enums.h"
 #include "../_backup/reset-constant.h"
+#include "../_backup/demo-constants.h"
 #include "u8g2.h"
 using std::max;
 using std::min;
@@ -58,9 +59,23 @@ struct {
   unsigned long lightLearnSample=0;
   bool wifiHoldingOk=false,wifiLongHandled=false,resetConfirmYes=false;
   int resetConfirmStep=0;
+  int editingAlarmIdx=-1;
+  bool calConfirmYes=false;
+  unsigned long lastInputTime=0;
   int wifiListReturnCategory=0;
 } state;
-struct {Alarm alarms[100];int alarmCount=4;} alarmMgr;
+constexpr int MAX_ALARMS=100;
+struct {
+  Alarm alarms[MAX_ALARMS];
+  AlarmOptions options[MAX_ALARMS];
+  int alarmCount=4;
+  bool sessionActive() const {return false;}
+  void save() {}
+} alarmMgr;
+struct {bool isBusy() const {return false;}} appNetworkWorker;
+struct {bool isTimeAlarmActive() const {return false;}} alarmOutputController;
+struct {bool active=false;} loadingOverlay;
+void muteCo2AlertIfRequested() {}
 struct APItem {String ssid,bssid;int rssi;bool isSecured;int category;bool hasDuplicate;};
 struct {
   std::vector<APItem> apList;char connectingSSID[33]={};int connectStatus=0,scanMessage=0;bool showFailMessage=false,isScanning=false;
@@ -108,6 +123,8 @@ struct Canvas {
   }
   void setFont(const uint8_t* f) { u8g2_SetFont(&g, f); }
   int getStrWidth(const char* s) { return u8g2_GetStrWidth(&g, s); }
+  int getAscent() { return u8g2_GetAscent(&g); }
+  int getDescent() { return u8g2_GetDescent(&g); }
   int getXOffsetGlyph(uint16_t code) { return u8g2_GetXOffsetGlyph(&g,code); }
   void setDrawColor(int c) { u8g2_SetDrawColor(&g, c); }
   void setClipWindow(int x0,int y0,int x1,int y1){u8g2_SetClipWindow(&g,x0,y0,x1,y1);}
@@ -223,6 +240,7 @@ void save(const char* name) {
 #include "wake_check_ui_checks.h"
 #include "hold_ui_checks.h"
 #include "repeat_delay_checks.h"
+#include "readme_demo.h"
 int main() {
   repeatDelayChecks();
   holdUiChecks();
@@ -359,6 +377,7 @@ int main() {
   newUiChecks();
   consistencyChecks();
   keyboardMotionIntegrity();
+  if (getenv("CO2_CAPTURE_DEMO")) captureReadmeInteractions();
   puts(
       "Actual U8g2 raster checks passed: 11,520 alarm field/time combinations, options and frame "
       "padding.");
